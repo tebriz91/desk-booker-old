@@ -1,4 +1,7 @@
 data
 assets
 config.py
+.env
 Dockerfile
+concatenation-script.py
+prompt.py

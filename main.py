@@ -1,8 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-import asyncio
-
 from telegram.ext import CommandHandler, CallbackQueryHandler, ApplicationBuilder, MessageHandler, filters
 
 import config
@@ -18,13 +16,9 @@ from booking_manager import start_booking_process, date_selected, room_selected,
 from utilities import superadmin_commands, admin_commands, help_command, dump_database, restore_database, handle_dump_file
 
 def main():
-    # Create a new event loop and set it as the current one
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    # Asynchronously initialize the database and admin user
-    loop.create_task(initialize_database())
-    loop.create_task(initialize_superadmin_user())
+    # Synchronously initialize the database and superadmin user
+    initialize_database()
+    initialize_superadmin_user()
 
     # Create an instance of Application
     application = ApplicationBuilder().token(config.BOT_TOKEN).build()
