@@ -5,7 +5,7 @@ import pytz
 import holidays
 import config
 from logger import Logger
-from decorators import user_required, admin_required
+from decorators import user_required, admin_required, track_command_usage
 from db_queries import execute_db_query
 
 logger = Logger.get_logger(__name__)
@@ -43,6 +43,7 @@ def generate_dates(num_days=config.NUM_DAYS, exclude_weekends=config.EXCLUDE_WEE
 
     return dates
 
+@track_command_usage
 async def cancel_button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     await query.answer()
@@ -52,6 +53,7 @@ async def cancel_button(update: Update, context: CallbackContext) -> None:
         return
 
 @user_required
+@track_command_usage
 async def start_booking_process(update: Update, context: CallbackContext) -> None:
     user_id = str(update.effective_user.id)
 
@@ -229,31 +231,33 @@ async def check_desk_availability(desk_id, booking_date):
         return False
 
 @user_required
+@track_command_usage
 async def display_bookings_for_cancellation(update: Update, context: CallbackContext) -> None:
     user_id = update.effective_user.id
 
-    today = datetime.now().strftime('%d.%m.%Y (%a)') # format the date as 'DD.MM.YYYY (Day)' (as stored in the database)
+    today = datetime.now().strftime('%Y-%m-%d') # format the date as 'DD.MM.YYYY (Day)' (as stored in the database)
 
     try:
         bookings = await execute_db_query("""
             SELECT b.booking_id, b.booking_date, d.desk_number
             FROM bookings b
-            JOIN desks d ON b.desk_id = d.desk_id
-            WHERE b.user_id = ? AND b.booking_date >= ?
-            ORDER BY b.booking_date
+            INNER JOIN desks d ON b.desk_id = d.desk_id
+            WHERE b.user_id = ? AND 
+                strftime('%Y-%m-%d', substr(b.booking_date, 7, 4) || '-' || substr(b.booking_date, 4, 2) || '-' || substr(b.booking_date, 1, 2)) >= ?
+            ORDER BY strftime('%Y-%m-%d', substr(b.booking_date, 7, 4) || '-' || substr(b.booking_date, 4, 2) || '-' || substr(b.booking_date, 1, 2))
         """, (user_id, today), fetch_all=True)
 
         if bookings:
             
             # Create a list of buttons for each booking
-            keyboard = [[InlineKeyboardButton(f"Cancel Desk {desk_number} on {booking_date}", callback_data=f'cancel_{booking_id}')] 
+            keyboard = [[InlineKeyboardButton(f"Desk {desk_number} on {booking_date}", callback_data=f'cancel_{booking_id}')] 
                         for booking_id, booking_date, desk_number in bookings]
             
             # Add a Cancel button
             keyboard.append([InlineKeyboardButton("Cancel", callback_data='cancelbutton')])
 
             reply_markup = InlineKeyboardMarkup(keyboard)
-            response_text = "Select a booking to cancel."
+            response_text = "Select a booking to cancel:"
         else:
             response_text = "You have no upcoming bookings to cancel."
 
@@ -299,21 +303,23 @@ async def cancel_booking_by_id(update: Update, context: CallbackContext) -> None
         await update.message.reply_text("Failed to cancel the booking. Please try again later.")
 
 @user_required
+@track_command_usage
 async def view_my_bookings(update: Update, context: CallbackContext) -> None:
     user_id = str(update.effective_user.id)
     username = update.effective_user.username or "Unknown User"
 
     # Define the time range
-    today = datetime.now().strftime('%d.%m.%Y (%a)')
+    today = datetime.now().strftime('%Y-%m-%d')
     
     try:
         query = """
-            SELECT b.booking_date, r.room_name, d.desk_number
-            FROM bookings b
-            INNER JOIN desks d ON b.desk_id = d.desk_id
-            INNER JOIN rooms r ON d.room_id = r.room_id
-            WHERE b.user_id = ? AND b.booking_date >= ?
-            ORDER BY b.booking_date
+                SELECT b.booking_date, r.room_name, d.desk_number
+                FROM bookings b
+                INNER JOIN desks d ON b.desk_id = d.desk_id
+                INNER JOIN rooms r ON d.room_id = r.room_id
+                WHERE b.user_id = ? AND 
+                    strftime('%Y-%m-%d', substr(b.booking_date, 7, 4) || '-' || substr(b.booking_date, 4, 2) || '-' || substr(b.booking_date, 1, 2)) >= ?
+                ORDER BY strftime('%Y-%m-%d', substr(b.booking_date, 7, 4) || '-' || substr(b.booking_date, 4, 2) || '-' || substr(b.booking_date, 1, 2))
         """
         bookings = await execute_db_query(query, (user_id, today), fetch_all=True)
 
@@ -332,17 +338,17 @@ async def view_my_bookings(update: Update, context: CallbackContext) -> None:
 @user_required
 async def view_all_bookings(update: Update, context: CallbackContext) -> None:
     # Define the time range
-    today = datetime.now().strftime('%d.%m.%Y (%a)')
+    today = datetime.now().strftime('%Y-%m-%d')
 
     try:
         query = """
-            SELECT b.booking_date, r.room_name, d.desk_number, b.user_id
-            FROM bookings b
-            INNER JOIN desks d ON b.desk_id = d.desk_id
-            INNER JOIN rooms r ON d.room_id = r.room_id
-            WHERE b.booking_date >= ?
-            ORDER BY b.booking_date, r.room_name, d.desk_number
-        """
+                SELECT b.booking_date, r.room_name, d.desk_number, b.user_id
+                FROM bookings b
+                INNER JOIN desks d ON b.desk_id = d.desk_id
+                INNER JOIN rooms r ON d.room_id = r.room_id
+                WHERE strftime('%Y-%m-%d', substr(b.booking_date, 7, 4) || '-' || substr(b.booking_date, 4, 2) || '-' || substr(b.booking_date, 1, 2)) >= ?
+                ORDER BY strftime('%Y-%m-%d', substr(b.booking_date, 7, 4) || '-' || substr(b.booking_date, 4, 2) || '-' || substr(b.booking_date, 1, 2)), r.room_name, d.desk_number
+        """ # Convert the date string to YYYY-MM-DD format for comparison in the query
         bookings = await execute_db_query(query, (today,), fetch_all=True)
 
         users_query = "SELECT user_id, username FROM users"
@@ -383,7 +389,7 @@ async def view_all_bookings(update: Update, context: CallbackContext) -> None:
 
 @admin_required
 async def view_booking_history(update: Update, context: CallbackContext) -> None:
-    two_weeks_ago = (datetime.now() - timedelta(days=14)).strftime('%d.%m.%Y (%a)')
+    two_weeks_ago = (datetime.now() - timedelta(days=14)).strftime('%Y-%m-%d')
 
     try:
         # Fetch users from the database
@@ -393,14 +399,14 @@ async def view_booking_history(update: Update, context: CallbackContext) -> None
 
         # Fetch bookings from the database
         bookings_query = """
-            SELECT b.booking_id, b.booking_date, r.room_name, d.desk_number, b.user_id
-            FROM bookings b
-            INNER JOIN desks d ON b.desk_id = d.desk_id
-            INNER JOIN rooms r ON d.room_id = r.room_id
-            WHERE b.booking_date >= ?
-            ORDER BY b.booking_date, r.room_name, d.desk_number
-        """
-        
+                SELECT b.booking_id, b.booking_date, r.room_name, d.desk_number, b.user_id
+                FROM bookings b
+                INNER JOIN desks d ON b.desk_id = d.desk_id
+                INNER JOIN rooms r ON d.room_id = r.room_id
+                WHERE strftime('%Y-%m-%d', substr(b.booking_date, 7, 4) || '-' || substr(b.booking_date, 4, 2) || '-' || substr(b.booking_date, 1, 2)) >= ?
+                ORDER BY strftime('%Y-%m-%d', substr(b.booking_date, 7, 4) || '-' || substr(b.booking_date, 4, 2) || '-' || substr(b.booking_date, 1, 2)), r.room_name, d.desk_number
+        """ # Convert the date string to YYYY-MM-DD format for comparison in the query
+
         bookings = await execute_db_query(bookings_query, (two_weeks_ago,), fetch_all=True)
 
         users_query = "SELECT user_id, username FROM users"

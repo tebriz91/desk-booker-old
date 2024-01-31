@@ -9,7 +9,7 @@ from telegram.ext import CallbackContext
 import config
 from logger import Logger
 from db_queries import execute_db_query
-from decorators import superadmin_required, admin_required, user_required
+from decorators import superadmin_required, admin_required, user_required, track_command_usage
 
 logger = Logger.get_logger(__name__)
 
@@ -20,9 +20,11 @@ async def superadmin_commands(update: Update, context: CallbackContext) -> None:
     message_text += "/revoke_admin [user_id] - Revoke admin status\n"
     message_text += "/dump_db - Create and send a database dump\n"
     message_text += "/restore_db - Restore a database dump\n"
+    message_text += "/view_stats - View command usage stats\n"
     await update.message.reply_text(message_text)
 
 @admin_required
+@track_command_usage
 async def admin_commands(update: Update, context: CallbackContext) -> None:
     message_text = "User Management:\n\n"
     message_text += "/add_user [user_id] [username] - Add a new user\n"
@@ -48,6 +50,7 @@ async def admin_commands(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text(message_text)
 
 @user_required
+@track_command_usage
 async def help_command(update: Update, context: CallbackContext) -> None:
     message_text = (f"Contact @{config.ADMIN_USERNAME} if you need help.")
     await update.message.reply_text(message_text)

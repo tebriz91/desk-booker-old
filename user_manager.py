@@ -2,7 +2,7 @@ from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 from db_queries import execute_db_query
-from decorators import superadmin_required, admin_required
+from decorators import superadmin_required, admin_required, track_command_usage
 import config
 from logger import Logger
 
@@ -10,6 +10,7 @@ logger = Logger.get_logger(__name__)
 
 last_start_command = {}  # Global variable to track the last usage of /start command by each user
 
+@track_command_usage
 async def start_command(update: Update, context: CallbackContext):
     query = update.callback_query
     user_id = update.effective_user.id
@@ -92,6 +93,7 @@ async def start_command(update: Update, context: CallbackContext):
             await query.answer(reply_text)
 
 @admin_required
+@track_command_usage
 async def add_user(update: Update, context: CallbackContext):
     if len(context.args) != 2:
         await update.message.reply_text("Usage: /add_user [user_id] [username]")
@@ -115,6 +117,7 @@ async def add_user(update: Update, context: CallbackContext):
         await update.message.reply_text("Failed to add user. Please try again later.")
 
 @admin_required
+@track_command_usage
 async def remove_user(update: Update, context: CallbackContext):
     if len(context.args) != 1:
         await update.message.reply_text("Usage: /remove_user [user_id]")
@@ -143,6 +146,7 @@ async def remove_user(update: Update, context: CallbackContext):
         await update.message.reply_text("Failed to remove user. Please try again later.")
 
 @superadmin_required
+@track_command_usage
 async def make_admin(update: Update, context: CallbackContext):
     if len(context.args) != 1:
         await update.message.reply_text("Usage: /make_admin [user_id]")
@@ -166,6 +170,7 @@ async def make_admin(update: Update, context: CallbackContext):
         await update.message.reply_text("Failed to update user to admin. Please try again later.")
 
 @superadmin_required
+@track_command_usage
 async def revoke_admin(update: Update, context: CallbackContext):
     if len(context.args) != 1:
         await update.message.reply_text("Usage: /revoke_admin [user_id]")

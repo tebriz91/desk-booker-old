@@ -15,6 +15,8 @@ from booking_manager import start_booking_process, date_selected, room_selected,
 
 from utilities import superadmin_commands, admin_commands, help_command, dump_database, restore_database, handle_dump_file
 
+from decorators import view_command_stats
+
 def main():
     # Synchronously initialize the database and superadmin user
     initialize_database()
@@ -56,6 +58,7 @@ def main():
     application.add_handler(CommandHandler('revoke_admin', revoke_admin))
     application.add_handler(CommandHandler('dump_db', dump_database))
     application.add_handler(CommandHandler('restore_db', restore_database))
+    application.add_handler(CommandHandler('view_stats', view_command_stats))
 
     # Register CommandHandlers for command-specific help
     application.add_handler(CommandHandler('superadmin', superadmin_commands))
