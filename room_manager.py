@@ -238,13 +238,14 @@ async def set_desk_availability(update: Update, context: CallbackContext) -> Non
 async def view_rooms(update: Update, context: CallbackContext) -> None:
     try:
         rooms = await execute_db_query("SELECT room_id, room_name, room_availability, room_add_info, plan_url FROM rooms", fetch_all=True)
-        message_text = "Rooms and Desks Information:\n\n"
+        
+        message_text = "Rooms and Desks Information\n\nRooms: room_name, room_id, room_availability, room_add_info, plan_url\nDesks: desk_number, desk_id, desk_availability, desk_add_info\n\n"
         
         # Iterate through rooms and desks and append to message_text
         for room in rooms:
 
             room_id, room_name, room_availability, room_add_info, plan_url = room
-            message_text += f"room_name: {room_name}\nroom_id: {room_id}, room_availability: {room_availability}, room_add_info: {room_add_info}, plan_url: {plan_url}\n\n"
+            message_text += f"{room_name}, {room_id}, {room_availability}, {room_add_info}, {plan_url}\n\n"
             
             # Get desks for the room
             desks = await execute_db_query("SELECT desk_id, desk_number, desk_availability, desk_add_info FROM desks WHERE room_id = ?", (room_id,), fetch_all=True)
@@ -252,9 +253,12 @@ async def view_rooms(update: Update, context: CallbackContext) -> None:
             # Iterate through desks and append to message_text
             for desk in desks:
                 desk_id, desk_number, desk_availability, desk_add_info = desk
-                message_text += f"desk_number: {desk_number}, desk_id: {desk_id}, desk_availability: {desk_availability}, desk_add_info: {desk_add_info}\n"
-            message_text += "\n"
-
+                message_text += f"{desk_number}, {desk_id}, {desk_availability}, {desk_add_info}\n"
+            
+            # Add a newline after each room-desk pair if message_text length is less than 4096 characters
+            if len(message_text) < 4096:
+                message_text += "\n"
+            
         await update.message.reply_text(message_text)
     except Exception as e:
         logger.error(f"Error in view_rooms: {e}")
