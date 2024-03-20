@@ -1,0 +1,11 @@
+meta:
+  environment: python
+  toolchain:
+    name: pip
+    version: 3.11.2
+build:
+  requirementsPath: requirements.txt
+run:
+  scriptName: main.py
+  persistenceMount: /assets
+  containerPort: 80
